@@ -152,13 +152,31 @@ length(unique(mec04$UNIT))
 # 4. DATA PREPARATION AND CLEANING
 # ============================================================
 
+# Create a copy of the original dataset for data preparation.
+# The original mec04 dataset is kept unchanged so that the
+# imported data can still be referenced if required.
+mec04_clean <- mec04
+
 
 
 # ============================================================
 # 5. MISSING VALUES
 # ============================================================
 
+# Remove the rows where VALUE is missing.
+# The missing values occur on 29 February in 2023 and 2025.
+# These years are not leap years, so 29 February is not a valid date.
+# The rows are therefore removed instead of estimating or imputing
+# electricity consumption values that should not exist.
+mec04_clean <- mec04_clean[!is.na(mec04_clean$VALUE), ]
 
+# Check the number of missing values after cleaning.
+# This confirms that the missing VALUE observations were removed.
+colSums(is.na(mec04_clean))
+
+# Check the new number of rows and columns.
+# The dataset should now contain 48 fewer rows and still have 12 columns.
+dim(mec04_clean)
 
 # ============================================================
 # 6. OUTLIER ANALYSIS
