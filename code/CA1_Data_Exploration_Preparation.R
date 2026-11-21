@@ -1271,7 +1271,7 @@ plot_rq4_corr <- ggplot(
   coord_fixed() +
   labs(
     title = "Pearson Correlation Matrix of Non-Redundant Features",
-    subtitle = "Month_Num excluded (collinear with Day_of_Year, r = 0.997); descriptive only",
+    subtitle = "Month_Num excluded due to near-collinearity with Day_of_Year (r = 0.997); descriptive only",
     x = NULL,
     y = NULL
   ) +
@@ -1289,7 +1289,7 @@ plot_rq4_corr
 ggsave(
   filename = "output/figures/rq4_correlation_matrix.png",
   plot = plot_rq4_corr,
-  width = 8.5,
+  width = 9.2,
   height = 6.5,
   dpi = 300,
   bg = "white"
