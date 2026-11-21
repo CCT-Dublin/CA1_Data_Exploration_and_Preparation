@@ -627,11 +627,26 @@ monthly_summary <- mec04_eda %>%
 # Display the first twelve rows of the monthly summary table.
 head(monthly_summary, 12)
 
-# Calculate seasonal summary statistics grouped by year and
-# Irish meteorological season.
-seasonal_summary <- mec04_eda %>%
-  group_by(Year, Season) %>%
+# Assign a meteorological Season_Year in a derived table so that
+# December is grouped with January and February of the following
+# calendar year (e.g., Winter 2024 = Dec 2023 + Jan 2024 + Feb 2024).
+# This keeps mec04_eda and mec04_clean unchanged while ensuring
+# meteorological winter is analysed accurately across calendar years.
+mec04_seasonal <- mec04_eda %>%
+  mutate(
+    Season_Year = ifelse(Month_Num == 12, Year + 1L, Year)
+  )
+
+# Calculate seasonal summary statistics grouped by Season_Year and
+# Irish meteorological season, flagging complete 3-month seasons.
+# Note: Winter 2023 (Jan-Feb 2023 only, missing Dec 2022) and
+# Winter 2026 (Dec 2025 only, missing Jan-Feb 2026) are incomplete.
+seasonal_summary <- mec04_seasonal %>%
+  group_by(Season_Year, Season) %>%
   summarise(
+    Months_Included = n_distinct(Month_Num),
+    Complete_Season = (Months_Included == 3),
+    Observations = n(),
     Mean_MWh = round(mean(Consumption_MWh), 2),
     Median_MWh = median(Consumption_MWh),
     SD_MWh = round(sd(Consumption_MWh), 2),
@@ -639,7 +654,7 @@ seasonal_summary <- mec04_eda %>%
     .groups = "drop"
   )
 
-# Display the seasonal summary table.
+# Display the seasonal summary table (including completeness flag).
 seasonal_summary
 
 # Plot 1 (RQ1): Monthly average electricity consumption time series (2023-2025).
@@ -707,20 +722,27 @@ ggsave(
   bg = "white"
 )
 
-# Plot 3 (RQ1): Seasonal electricity consumption across 2023, 2024 and 2025.
-# Comparing seasons across years separates seasonal variation from
-# the overall multi-year growth pattern.
+# Plot 3 (RQ1): Seasonal electricity consumption across complete
+# meteorological seasons (Season_Year 2023, 2024 and 2025).
+# Incomplete boundary winters (Winter 2023 without Dec 2022 and
+# Winter 2026 without Jan-Feb 2026) are excluded from the comparison
+# to avoid distorting seasonal distributions.
+mec04_seasonal_complete <- mec04_seasonal %>%
+  filter(
+    !(Season == "Winter" & Season_Year %in% c(2023L, 2026L))
+  )
+
 plot_rq1_season_box <- ggplot(
-  mec04_eda,
-  aes(x = Season, y = Consumption_MWh, fill = factor(Year))
+  mec04_seasonal_complete,
+  aes(x = Season, y = Consumption_MWh, fill = factor(Season_Year))
 ) +
-  geom_boxplot(alpha = 0.8, outlier.alpha = 0.4) +
+  geom_boxplot(alpha = 0.8, outlier.alpha = 0.4, position = position_dodge(preserve = "single")) +
   labs(
-    title = "Seasonal Electricity Consumption by Year (2023-2025)",
-    subtitle = "Irish meteorological seasons (Winter: DJF, Spring: MAM, Summer: JJA, Autumn: SON)",
+    title = "Seasonal Electricity Consumption by Meteorological Season Year",
+    subtitle = "Complete 3-month seasons only (Dec assigned to next Winter; incomplete Winter 2023 & 2026 excluded)",
     x = "Meteorological Season",
     y = "Hourly Electricity Consumption (MWh)",
-    fill = "Year"
+    fill = "Season Year"
   ) +
   theme_minimal(base_size = 12) +
   theme(
