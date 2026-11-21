@@ -761,6 +761,224 @@ ggsave(
   bg = "white"
 )
 
+# ------------------------------------------------------------
+# 8.2 RQ2: How does electricity consumption vary across days
+#          and hourly consumption periods?
+# ------------------------------------------------------------
+
+# Note on time zone:
+# All hourly intervals and time-of-day periods are analysed in UTC,
+# matching the original CSO MEC04 reporting convention.
+
+# Calculate summary statistics by day of the week (Monday to Sunday).
+dow_summary <- mec04_eda %>%
+  group_by(Day_of_Week, Day_Type) %>%
+  summarise(
+    Observations = n(),
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    IQR_MWh = IQR(Consumption_MWh),
+    .groups = "drop"
+  )
+
+# Display the day-of-week summary table.
+dow_summary
+
+# Compare overall consumption between Weekdays and Weekends.
+daytype_summary <- mec04_eda %>%
+  group_by(Day_Type) %>%
+  summarise(
+    Observations = n(),
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    IQR_MWh = IQR(Consumption_MWh),
+    .groups = "drop"
+  )
+
+# Display the Weekday vs. Weekend summary table.
+daytype_summary
+
+# Check whether the Weekday vs. Weekend difference is consistent
+# across each individual year (2023, 2024 and 2025).
+daytype_year_summary <- mec04_eda %>%
+  group_by(Year, Day_Type) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    .groups = "drop"
+  )
+
+# Display the yearly Weekday vs. Weekend summary.
+daytype_year_summary
+
+# Calculate mean hourly electricity consumption (0-23 UTC) split
+# by Weekday and Weekend to construct the daily load profile.
+hourly_daytype_summary <- mec04_eda %>%
+  group_by(Day_Type, Hour) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    .groups = "drop"
+  )
+
+# Display the first twelve rows of the hourly profile summary.
+head(hourly_daytype_summary, 12)
+
+# Calculate overall hourly summary across all days to identify
+# peak and minimum consumption hours (UTC).
+hourly_overall_summary <- mec04_eda %>%
+  group_by(Hour) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    .groups = "drop"
+  )
+
+# Display the overall 24-hour summary table.
+hourly_overall_summary
+
+# Calculate summary statistics by four 6-hour periods of the day (UTC).
+period_summary <- mec04_eda %>%
+  group_by(Time_Period) %>%
+  summarise(
+    Observations = n(),
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    IQR_MWh = IQR(Consumption_MWh),
+    .groups = "drop"
+  )
+
+# Display the time-of-day period summary table.
+period_summary
+
+# Calculate mean consumption by Time_Period and Year to check whether
+# intra-day differences remain stable as overall demand grows.
+period_year_summary <- mec04_eda %>%
+  group_by(Year, Time_Period) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    .groups = "drop"
+  )
+
+# Display the yearly time-period summary table.
+period_year_summary
+
+# Plot 1 (RQ2): Average hourly consumption profile (UTC) for Weekdays vs. Weekends.
+plot_rq2_hourly <- ggplot(
+  hourly_daytype_summary,
+  aes(x = Hour, y = Mean_MWh, colour = Day_Type, group = Day_Type)
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.2) +
+  scale_x_continuous(breaks = seq(0, 23, by = 2)) +
+  labs(
+    title = "Average Hourly Electricity Consumption Profile: Weekday vs. Weekend",
+    subtitle = "Mean hourly consumption across 2023-2025 (UTC timestamps, CSO MEC04)",
+    x = "Hour of Day (UTC)",
+    y = "Mean Hourly Consumption (MWh)",
+    colour = "Day Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save RQ2 Plot 1 to output/figures/.
+plot_rq2_hourly
+ggsave(
+  filename = "output/figures/rq2_hourly_profile_weekday_weekend.png",
+  plot = plot_rq2_hourly,
+  width = 10,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Plot 2 (RQ2): Mean electricity consumption by day of the week.
+# A focused y-axis range is used with exact value labels so subtle
+# day-to-day differences among large energy users remain visible.
+plot_rq2_dow <- ggplot(
+  dow_summary,
+  aes(x = Day_of_Week, y = Mean_MWh, fill = Day_Type)
+) +
+  geom_col(width = 0.65, alpha = 0.85) +
+  geom_text(
+    aes(label = sprintf("%.1f", Mean_MWh)),
+    vjust = -0.5,
+    size = 3.8,
+    fontface = "bold"
+  ) +
+  coord_cartesian(ylim = c(950, 1075)) +
+  labs(
+    title = "Mean Hourly Electricity Consumption by Day of the Week (2023-2025)",
+    subtitle = "Note: y-axis starts at 950 MWh to highlight day-to-day differences clearly",
+    x = "Day of the Week",
+    y = "Mean Hourly Consumption (MWh)",
+    fill = "Day Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save RQ2 Plot 2 to output/figures/.
+plot_rq2_dow
+ggsave(
+  filename = "output/figures/rq2_day_of_week_consumption.png",
+  plot = plot_rq2_dow,
+  width = 9.5,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Plot 3 (RQ2): Mean electricity consumption by time-of-day period across years.
+plot_rq2_period_year <- ggplot(
+  period_year_summary,
+  aes(x = Time_Period, y = Mean_MWh, fill = factor(Year))
+) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.68, alpha = 0.85) +
+  geom_text(
+    aes(label = sprintf("%.0f", Mean_MWh)),
+    position = position_dodge(width = 0.75),
+    vjust = -0.4,
+    size = 3.3
+  ) +
+  coord_cartesian(ylim = c(800, 1200)) +
+  labs(
+    title = "Mean Electricity Consumption by Time-of-Day Period and Year (UTC)",
+    subtitle = "Night (00-05), Morning (06-11), Afternoon (12-17), Evening (18-23); y-axis starts at 800 MWh",
+    x = "Time-of-Day Period (UTC)",
+    y = "Mean Hourly Consumption (MWh)",
+    fill = "Year"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save RQ2 Plot 3 to output/figures/.
+plot_rq2_period_year
+ggsave(
+  filename = "output/figures/rq2_time_period_by_year.png",
+  plot = plot_rq2_period_year,
+  width = 10,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
 
 
 # ============================================================
