@@ -182,6 +182,218 @@ dim(mec04_clean)
 # 6. OUTLIER ANALYSIS
 # ============================================================
 
+# ------------------------------------------------------------
+# 6.1 Global Outlier Check (1.5 x IQR Rule)
+# ------------------------------------------------------------
+
+# Calculate the first quartile (Q1), third quartile (Q3) and
+# interquartile range (IQR) for VALUE in the cleaned dataset.
+global_q1 <- quantile(mec04_clean$VALUE, 0.25)
+global_q3 <- quantile(mec04_clean$VALUE, 0.75)
+global_iqr <- IQR(mec04_clean$VALUE)
+
+# Calculate the global lower and upper bounds for potential outliers
+# using the standard 1.5 x IQR rule.
+global_lower <- global_q1 - 1.5 * global_iqr
+global_upper <- global_q3 + 1.5 * global_iqr
+
+# Count the number of observations below the lower bound and above
+# the upper bound across the entire cleaned dataset.
+global_below <- sum(mec04_clean$VALUE < global_lower)
+global_above <- sum(mec04_clean$VALUE > global_upper)
+global_outliers_total <- global_below + global_above
+
+# Display the global IQR limits and outlier counts.
+# Across all three years combined, no global outliers are detected.
+global_lower
+global_upper
+global_below
+global_above
+global_outliers_total
+
+# ------------------------------------------------------------
+# 6.2 Grouped Outlier Analysis (By Year, Month and Hour)
+# ------------------------------------------------------------
+
+# Define a helper function to compute summary statistics, IQR bounds
+# and potential outlier counts for any numeric vector.
+calculate_iqr_outliers <- function(x) {
+  q1 <- unname(quantile(x, 0.25))
+  q3 <- unname(quantile(x, 0.75))
+  iqr_val <- IQR(x)
+  lower <- q1 - 1.5 * iqr_val
+  upper <- q3 + 1.5 * iqr_val
+  below <- sum(x < lower)
+  above <- sum(x > upper)
+
+  c(
+    N = length(x),
+    Min = min(x),
+    Q1 = q1,
+    Median = median(x),
+    Mean = round(mean(x), 2),
+    Q3 = q3,
+    Max = max(x),
+    IQR = iqr_val,
+    Lower_Limit = lower,
+    Upper_Limit = upper,
+    Below_Lower = below,
+    Above_Upper = above,
+    Total_Outliers = below + above
+  )
+}
+
+# Apply the 1.5 x IQR rule separately to each year (2023, 2024, 2025).
+# Separating by year accounts for changes in the overall consumption
+# level across years.
+outliers_by_year <- as.data.frame(
+  do.call(
+    rbind,
+    lapply(split(mec04_clean$VALUE, mec04_clean$Year), calculate_iqr_outliers)
+  )
+)
+
+# Display the yearly outlier summary table and the combined count.
+outliers_by_year
+sum(outliers_by_year$Total_Outliers)
+
+# Calculate the percentage of observations flagged as potential
+# within-year outliers across the cleaned dataset.
+round((sum(outliers_by_year$Total_Outliers) / nrow(mec04_clean)) * 100, 2)
+
+# Create a boxplot of electricity consumption grouped by year.
+# This visualises both the upward shift in consumption from 2023 to 2025
+# and the potential outliers identified within each individual year.
+boxplot(
+  VALUE ~ Year,
+  data = mec04_clean,
+  main = "Electricity Consumption by Year (Within-Year Outlier Check)",
+  xlab = "Year",
+  ylab = "Electricity Consumption (MWh)",
+  col = c("lightblue", "lightgreen", "lightcoral")
+)
+
+# Extract month names temporarily from the Day variable (e.g., "01 January" -> "January")
+# to check for potential outliers grouped by month across all years.
+# Permanent date and month features will be created in Section 7.
+month_temp <- sub("^[0-9]+ ", "", mec04_clean$Day)
+
+# Apply the 1.5 x IQR rule separately to each calendar month.
+outliers_by_month <- as.data.frame(
+  do.call(
+    rbind,
+    lapply(split(mec04_clean$VALUE, month_temp), calculate_iqr_outliers)
+  )
+)
+
+# Display the monthly outlier counts and total.
+outliers_by_month[, c("N", "Lower_Limit", "Upper_Limit", "Below_Lower", "Above_Upper", "Total_Outliers")]
+sum(outliers_by_month$Total_Outliers)
+
+# Apply the 1.5 x IQR rule separately to each hourly consumption period.
+outliers_by_hour <- as.data.frame(
+  do.call(
+    rbind,
+    lapply(split(mec04_clean$VALUE, mec04_clean$Hourly.Consumption), calculate_iqr_outliers)
+  )
+)
+
+# Display the hourly outlier counts and total.
+outliers_by_hour[, c("N", "Lower_Limit", "Upper_Limit", "Below_Lower", "Above_Upper", "Total_Outliers")]
+sum(outliers_by_hour$Total_Outliers)
+
+# Build a summary comparison table showing how outlier detection
+# depends on the grouping structure used during analysis.
+outlier_comparison <- data.frame(
+  Grouping = c("Full Dataset (Global)", "By Year", "By Month", "By Hour"),
+  Below_Lower = c(
+    global_below,
+    sum(outliers_by_year$Below_Lower),
+    sum(outliers_by_month$Below_Lower),
+    sum(outliers_by_hour$Below_Lower)
+  ),
+  Above_Upper = c(
+    global_above,
+    sum(outliers_by_year$Above_Upper),
+    sum(outliers_by_month$Above_Upper),
+    sum(outliers_by_hour$Above_Upper)
+  ),
+  Total_Potential_Outliers = c(
+    global_outliers_total,
+    sum(outliers_by_year$Total_Outliers),
+    sum(outliers_by_month$Total_Outliers),
+    sum(outliers_by_hour$Total_Outliers)
+  )
+)
+
+# Display the comparison table across all four grouping levels.
+outlier_comparison
+
+# ------------------------------------------------------------
+# 6.3 Inspection of Within-Year Potential Outliers
+# ------------------------------------------------------------
+
+# Extract all observations flagged as potential outliers within
+# their respective year so they can be examined before making a decision.
+yearly_outliers_list <- lapply(sort(unique(mec04_clean$Year)), function(yr) {
+  sub_df <- mec04_clean[mec04_clean$Year == yr, ]
+  q1 <- unname(quantile(sub_df$VALUE, 0.25))
+  q3 <- unname(quantile(sub_df$VALUE, 0.75))
+  iqr_val <- IQR(sub_df$VALUE)
+  lower <- q1 - 1.5 * iqr_val
+  upper <- q3 + 1.5 * iqr_val
+
+  flagged <- sub_df[sub_df$VALUE < lower | sub_df$VALUE > upper,
+                    c("Year", "Day", "Hourly.Consumption", "VALUE")]
+
+  if (nrow(flagged) > 0) {
+    flagged$Lower_Limit <- lower
+    flagged$Upper_Limit <- upper
+    flagged$Outlier_Type <- ifelse(flagged$VALUE < lower, "Below Lower", "Above Upper")
+  }
+  flagged
+})
+
+# Combine the flagged observations from all three years into one data frame.
+yearly_outliers <- do.call(rbind, yearly_outliers_list)
+
+# Check the total number of flagged observations (expected: 59).
+nrow(yearly_outliers)
+
+# Display the count of flagged observations by year and outlier type.
+table(yearly_outliers$Year, yearly_outliers$Outlier_Type)
+
+# Display which dates contain the within-year potential outliers in each year.
+# This helps check whether flagged values cluster around specific calendar dates
+# (such as early January holiday periods or summer peaks).
+table(yearly_outliers$Day, yearly_outliers$Year)
+
+# Display the first ten flagged observations and the high outliers in 2025.
+head(yearly_outliers, 10)
+yearly_outliers[yearly_outliers$Outlier_Type == "Above Upper", ]
+
+# ------------------------------------------------------------
+# 6.4 Outlier Handling Decision
+# ------------------------------------------------------------
+
+# Decision: Retain all 59 within-year potential outliers in mec04_clean.
+#
+# Justification:
+# 1. Global vs. within-group effect: No outliers appear globally, by month,
+#    or by hour because the upward trend across 2023-2025 widens the combined
+#    IQR (143 MWh) compared with individual years (51-59 MWh).
+# 2. Domain validity: All 59 values fall within a realistic physical range
+#    (802 to 1,248 MWh) with no evidence of negative values, zeros, or
+#    metering errors.
+# 3. Calendar context: Low within-year outliers occur mainly in early January
+#    (e.g., 01-02 January) and early in each year when baseline consumption is
+#    lower, while the two high outliers on 21 July 2025 reflect peak demand.
+# 4. Preserving real demand variation: Removing valid observations would
+#    artificially reduce genuine seasonal and demand-peak variability.
+
+# Confirm that mec04_clean retains all 26,304 valid observations and 12 columns.
+dim(mec04_clean)
+
 
 
 # ============================================================
