@@ -985,6 +985,185 @@ ggsave(
   bg = "white"
 )
 
+# ------------------------------------------------------------
+# 8.3 RQ3: What unusual patterns or variations can be
+#          identified in electricity consumption?
+# ------------------------------------------------------------
+
+# Flag each hourly observation against its own year's 1.5 x IQR
+# bounds (matching Section 6) in a derived data frame so mec04_eda
+# remains unchanged.
+mec04_rq3_hourly <- mec04_eda %>%
+  group_by(Year) %>%
+  mutate(
+    Year_Q1 = quantile(Consumption_MWh, 0.25),
+    Year_Q3 = quantile(Consumption_MWh, 0.75),
+    Year_IQR = IQR(Consumption_MWh),
+    Year_Lower = Year_Q1 - 1.5 * Year_IQR,
+    Year_Upper = Year_Q3 + 1.5 * Year_IQR,
+    Hourly_Flag = case_when(
+      Consumption_MWh < Year_Lower ~ "Below Lower",
+      Consumption_MWh > Year_Upper ~ "Above Upper",
+      TRUE ~ "Normal"
+    )
+  ) %>%
+  ungroup()
+
+# Verify that the total number of flagged hourly observations
+# matches Section 6 (57 Below Lower and 2 Above Upper = 59 total).
+table(mec04_rq3_hourly$Year, mec04_rq3_hourly$Hourly_Flag)
+
+# Aggregate hourly observations to the daily level (1,096 days) and
+# identify calendar days that contain at least one within-year
+# flagged hourly observation.
+# Note: Highlighting a day indicates that one or more hourly readings
+# on that date fell outside the annual 1.5 x IQR bounds; it does not
+# classify the entire daily mean itself as a statistical outlier.
+daily_summary <- mec04_rq3_hourly %>%
+  group_by(Year, Date, Month, Day_Type) %>%
+  summarise(
+    Daily_Mean_MWh = round(mean(Consumption_MWh), 2),
+    Daily_Min_MWh = min(Consumption_MWh),
+    Daily_Max_MWh = max(Consumption_MWh),
+    Daily_SD_MWh = round(sd(Consumption_MWh), 2),
+    Daily_Range_MWh = max(Consumption_MWh) - min(Consumption_MWh),
+    Low_Outlier_Hours = sum(Hourly_Flag == "Below Lower"),
+    High_Outlier_Hours = sum(Hourly_Flag == "Above Upper"),
+    Total_Outlier_Hours = Low_Outlier_Hours + High_Outlier_Hours,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Day_Flag = case_when(
+      High_Outlier_Hours > 0 ~ "Day with High Hourly Outlier(s)",
+      Low_Outlier_Hours > 0 ~ "Day with Low Hourly Outlier(s)",
+      TRUE ~ "No Flagged Hourly Outliers"
+    )
+  )
+
+# Display the table of calendar days containing flagged hourly outliers.
+flagged_days_summary <- daily_summary %>%
+  filter(Total_Outlier_Hours > 0) %>%
+  select(
+    Date, Year, Day_Type, Daily_Mean_MWh, Daily_Min_MWh,
+    Daily_Max_MWh, Low_Outlier_Hours, High_Outlier_Hours
+  )
+
+flagged_days_summary
+
+# Identify the ten days with the largest intra-day consumption range
+# (Daily_Max_MWh - Daily_Min_MWh) to inspect unusual short-term swings.
+top_volatile_days <- daily_summary %>%
+  arrange(desc(Daily_Range_MWh)) %>%
+  select(Date, Year, Day_Type, Daily_Mean_MWh, Daily_Min_MWh, Daily_Max_MWh, Daily_Range_MWh) %>%
+  head(10)
+
+top_volatile_days
+
+# Extract only the flagged days to overlay them clearly on the
+# daily mean consumption time series.
+daily_flagged_points <- daily_summary %>%
+  filter(Total_Outlier_Hours > 0)
+
+# Plot 1 (RQ3): Daily mean electricity consumption (2023-2025) with
+# days containing within-year flagged hourly outliers highlighted.
+plot_rq3_daily_anomalies <- ggplot(
+  daily_summary,
+  aes(x = Date, y = Daily_Mean_MWh)
+) +
+  geom_line(colour = "steelblue4", linewidth = 0.55, alpha = 0.9) +
+  geom_point(
+    data = daily_flagged_points,
+    aes(colour = Day_Flag, shape = Day_Flag),
+    size = 3.0
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Day with Low Hourly Outlier(s)" = "#D95F02",
+      "Day with High Hourly Outlier(s)" = "#D7191C"
+    )
+  ) +
+  scale_shape_manual(
+    values = c(
+      "Day with Low Hourly Outlier(s)" = 16,
+      "Day with High Hourly Outlier(s)" = 17
+    )
+  ) +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") +
+  labs(
+    title = "Daily Mean Electricity Consumption and Days with Flagged Hourly Outliers",
+    subtitle = "Markers identify dates containing >=1 within-year hourly IQR outlier (59 hours across 16 dates; UTC)",
+    x = "Date",
+    y = "Daily Mean Consumption (MWh)",
+    colour = "Flagged Date Category",
+    shape = "Flagged Date Category"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save RQ3 Plot 1 to output/figures/.
+plot_rq3_daily_anomalies
+ggsave(
+  filename = "output/figures/rq3_daily_consumption_anomalies.png",
+  plot = plot_rq3_daily_anomalies,
+  width = 11,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Calculate mean electricity consumption by Year, Month and Hour (UTC)
+# to construct a faceted Hour x Month heatmap.
+# Separating the heatmap into yearly facets prevents the 2023-2025
+# growth trend from obscuring intra-year monthly and hourly patterns.
+hour_month_year_summary <- mec04_eda %>%
+  group_by(Year, Month_Num, Hour) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Month_Short = factor(month.abb[Month_Num], levels = month.abb, ordered = TRUE)
+  )
+
+# Plot 2 (RQ3): Faceted Hour (UTC) x Month heatmap of mean consumption by year.
+plot_rq3_heatmap <- ggplot(
+  hour_month_year_summary,
+  aes(x = Month_Short, y = Hour, fill = Mean_MWh)
+) +
+  geom_tile() +
+  facet_wrap(~ Year, ncol = 3) +
+  scale_y_continuous(breaks = seq(0, 23, by = 3)) +
+  scale_fill_viridis_c(option = "viridis", name = "Mean (MWh)") +
+  labs(
+    title = "Hourly Electricity Consumption Heatmap by Month and Year (2023-2025)",
+    subtitle = "Mean metered consumption by Hour (UTC) and Month, faceted by Year to separate annual growth",
+    x = "Month",
+    y = "Hour of Day (UTC)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    panel.grid = element_blank(),
+    strip.text = element_text(face = "bold", size = 12),
+    legend.position = "right"
+  )
+
+# Display and save RQ3 Plot 2 to output/figures/.
+plot_rq3_heatmap
+ggsave(
+  filename = "output/figures/rq3_hour_month_heatmap_by_year.png",
+  plot = plot_rq3_heatmap,
+  width = 12,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
 
 
 # ============================================================
