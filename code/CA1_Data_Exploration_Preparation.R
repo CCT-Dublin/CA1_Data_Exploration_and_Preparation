@@ -904,26 +904,28 @@ ggsave(
 )
 
 # Plot 2 (RQ2): Mean electricity consumption by day of the week.
-# A focused y-axis range is used with exact value labels so subtle
-# day-to-day differences among large energy users remain visible.
+# A point plot is used instead of a truncated bar chart so that small
+# day-to-day differences are shown clearly without exaggerating magnitude.
 plot_rq2_dow <- ggplot(
   dow_summary,
-  aes(x = Day_of_Week, y = Mean_MWh, fill = Day_Type)
+  aes(x = Day_of_Week, y = Mean_MWh, colour = Day_Type)
 ) +
-  geom_col(width = 0.65, alpha = 0.85) +
+  geom_line(aes(group = 1), colour = "grey75", linewidth = 0.7) +
+  geom_point(size = 4.2) +
   geom_text(
     aes(label = sprintf("%.1f", Mean_MWh)),
-    vjust = -0.5,
-    size = 3.8,
-    fontface = "bold"
+    vjust = -1.1,
+    size = 3.6,
+    fontface = "bold",
+    show.legend = FALSE
   ) +
-  coord_cartesian(ylim = c(950, 1075)) +
+  coord_cartesian(ylim = c(1022, 1054)) +
   labs(
     title = "Mean Hourly Electricity Consumption by Day of the Week (2023-2025)",
-    subtitle = "Note: y-axis starts at 950 MWh to highlight day-to-day differences clearly",
+    subtitle = "Observed mean consumption across 2023-2025 (UTC); point plot avoids truncated-bar distortion",
     x = "Day of the Week",
     y = "Mean Hourly Consumption (MWh)",
-    fill = "Day Type"
+    colour = "Day Type"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -943,24 +945,28 @@ ggsave(
 )
 
 # Plot 3 (RQ2): Mean electricity consumption by time-of-day period across years.
+# Grouped points connected by year highlight both the consistent intra-day
+# ordering and the much larger multi-year shift without truncated bars.
 plot_rq2_period_year <- ggplot(
   period_year_summary,
-  aes(x = Time_Period, y = Mean_MWh, fill = factor(Year))
+  aes(x = Time_Period, y = Mean_MWh, colour = factor(Year), group = factor(Year))
 ) +
-  geom_col(position = position_dodge(width = 0.75), width = 0.68, alpha = 0.85) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 3.8) +
   geom_text(
     aes(label = sprintf("%.0f", Mean_MWh)),
-    position = position_dodge(width = 0.75),
-    vjust = -0.4,
-    size = 3.3
+    vjust = -1.1,
+    size = 3.4,
+    fontface = "bold",
+    show.legend = FALSE
   ) +
-  coord_cartesian(ylim = c(800, 1200)) +
+  coord_cartesian(ylim = c(925, 1170)) +
   labs(
     title = "Mean Electricity Consumption by Time-of-Day Period and Year (UTC)",
-    subtitle = "Night (00-05), Morning (06-11), Afternoon (12-17), Evening (18-23); y-axis starts at 800 MWh",
+    subtitle = "Night (00-05), Morning (06-11), Afternoon (12-17), Evening (18-23); point plot avoids bar distortion",
     x = "Time-of-Day Period (UTC)",
     y = "Mean Hourly Consumption (MWh)",
-    fill = "Year"
+    colour = "Year"
   ) +
   theme_minimal(base_size = 12) +
   theme(
