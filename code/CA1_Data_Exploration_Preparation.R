@@ -575,6 +575,170 @@ table(mec04_eda$Day_of_Week)
 # 8. EXPLORATORY DATA ANALYSIS (EDA)
 # ============================================================
 
+# Ensure the figures output directory exists before saving plots.
+dir.create("output/figures", recursive = TRUE, showWarnings = FALSE)
+
+# ------------------------------------------------------------
+# 8.1 RQ1: How does electricity consumption vary over time?
+# ------------------------------------------------------------
+
+# Note on time-series structure:
+# The 26,304 rows represent sequential hourly observations rather
+# than independent random samples. Any upward pattern across
+# 2023-2025 describes temporal change over the three-year window
+# and does not establish a causal effect of calendar year alone.
+
+# Calculate annual summary statistics and year-over-year percentage
+# change in mean hourly electricity consumption (MWh).
+yearly_summary <- mec04_eda %>%
+  group_by(Year) %>%
+  summarise(
+    Observations = n(),
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    IQR_MWh = IQR(Consumption_MWh),
+    Min_MWh = min(Consumption_MWh),
+    Max_MWh = max(Consumption_MWh),
+    Total_GWh = round(sum(Consumption_MWh) / 1000, 2),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    YoY_Mean_Change_Pct = round((Mean_MWh / lag(Mean_MWh) - 1) * 100, 2)
+  )
+
+# Display the annual summary table.
+yearly_summary
+
+# Calculate monthly mean, median and standard deviation for each
+# year-month combination from January 2023 to December 2025.
+monthly_summary <- mec04_eda %>%
+  group_by(Year, Month_Num, Month) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Year_Month = as.Date(sprintf("%d-%02d-01", Year, Month_Num))
+  )
+
+# Display the first twelve rows of the monthly summary table.
+head(monthly_summary, 12)
+
+# Calculate seasonal summary statistics grouped by year and
+# Irish meteorological season.
+seasonal_summary <- mec04_eda %>%
+  group_by(Year, Season) %>%
+  summarise(
+    Mean_MWh = round(mean(Consumption_MWh), 2),
+    Median_MWh = median(Consumption_MWh),
+    SD_MWh = round(sd(Consumption_MWh), 2),
+    IQR_MWh = IQR(Consumption_MWh),
+    .groups = "drop"
+  )
+
+# Display the seasonal summary table.
+seasonal_summary
+
+# Plot 1 (RQ1): Monthly average electricity consumption time series (2023-2025).
+plot_rq1_monthly <- ggplot(
+  monthly_summary,
+  aes(x = Year_Month, y = Mean_MWh, colour = factor(Year), group = 1)
+) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.2) +
+  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") +
+  labs(
+    title = "Monthly Average Electricity Consumption of Large Energy Users (2023-2025)",
+    subtitle = "Ireland CSO MEC04 metered hourly electricity data (UTC), aggregated to monthly means",
+    x = "Month and Year",
+    y = "Mean Hourly Consumption (MWh)",
+    colour = "Year"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save Plot 1 to output/figures/.
+plot_rq1_monthly
+ggsave(
+  filename = "output/figures/rq1_monthly_trend_2023_2025.png",
+  plot = plot_rq1_monthly,
+  width = 10,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Plot 2 (RQ1): Distribution of hourly electricity consumption by year.
+# This boxplot illustrates both the annual level shift and the
+# within-year potential outliers examined in Section 6.
+plot_rq1_year_box <- ggplot(
+  mec04_eda,
+  aes(x = factor(Year), y = Consumption_MWh, fill = factor(Year))
+) +
+  geom_boxplot(alpha = 0.8, outlier.alpha = 0.6) +
+  labs(
+    title = "Distribution of Hourly Electricity Consumption by Year (2023-2025)",
+    subtitle = "Comparison of median, interquartile range and within-year extreme observations",
+    x = "Year",
+    y = "Hourly Electricity Consumption (MWh)",
+    fill = "Year"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+# Display and save Plot 2 to output/figures/.
+plot_rq1_year_box
+ggsave(
+  filename = "output/figures/rq1_consumption_by_year_boxplot.png",
+  plot = plot_rq1_year_box,
+  width = 8,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Plot 3 (RQ1): Seasonal electricity consumption across 2023, 2024 and 2025.
+# Comparing seasons across years separates seasonal variation from
+# the overall multi-year growth pattern.
+plot_rq1_season_box <- ggplot(
+  mec04_eda,
+  aes(x = Season, y = Consumption_MWh, fill = factor(Year))
+) +
+  geom_boxplot(alpha = 0.8, outlier.alpha = 0.4) +
+  labs(
+    title = "Seasonal Electricity Consumption by Year (2023-2025)",
+    subtitle = "Irish meteorological seasons (Winter: DJF, Spring: MAM, Summer: JJA, Autumn: SON)",
+    x = "Meteorological Season",
+    y = "Hourly Electricity Consumption (MWh)",
+    fill = "Year"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save Plot 3 to output/figures/.
+plot_rq1_season_box
+ggsave(
+  filename = "output/figures/rq1_seasonal_comparison_by_year.png",
+  plot = plot_rq1_season_box,
+  width = 10,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
 
 
 # ============================================================
