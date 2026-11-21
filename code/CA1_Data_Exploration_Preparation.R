@@ -1169,6 +1169,132 @@ ggsave(
   bg = "white"
 )
 
+# ------------------------------------------------------------
+# 8.4 RQ4 (EDA): Relationships Between Features and
+#                Correlation Analysis
+# ------------------------------------------------------------
+
+# Before building the correlation matrix, check for redundant
+# calendar variables. Month_Num and Day_of_Year capture nearly
+# identical within-year calendar position.
+round(cor(mec04_eda$Month_Num, mec04_eda$Day_of_Year), 4)
+
+# Because Month_Num and Day_of_Year are almost perfectly collinear
+# (r > 0.99), only Day_of_Year is retained in the correlation matrix
+# alongside Year, Is_Weekend (binary indicator: 0 = Weekday,
+# 1 = Weekend), Hour (UTC) and Consumption_MWh.
+# This avoids inflating the matrix with duplicate calendar measures
+# while keeping mec04_eda unchanged.
+mec04_corr_data <- mec04_eda %>%
+  transmute(
+    Consumption_MWh = Consumption_MWh,
+    Year = as.numeric(Year),
+    Day_of_Year = as.numeric(Day_of_Year),
+    Is_Weekend = ifelse(Day_Type == "Weekend", 1, 0),
+    Hour = as.numeric(Hour)
+  )
+
+# Compute Pearson (linear) and Spearman (monotonic) correlation
+# matrices across the five selected non-redundant variables.
+# Methodological notes:
+# 1. Correlation measures association, not causation.
+# 2. Because hourly measurements are sequentially autocorrelated,
+#    correlations are interpreted descriptively without assuming
+#    independent observations.
+# 3. Linear correlation with Hour is expected to be weak even though
+#    RQ2 showed a curved intra-day profile peaking at 14:00 UTC.
+corr_pearson <- round(cor(mec04_corr_data, method = "pearson"), 3)
+corr_spearman <- round(cor(mec04_corr_data, method = "spearman"), 3)
+
+# Display both correlation matrices.
+corr_pearson
+corr_spearman
+
+# Build a focused summary table comparing each temporal feature's
+# association with Consumption_MWh (Pearson r and Spearman rho).
+consumption_correlations <- data.frame(
+  Feature = c("Year", "Day_of_Year", "Is_Weekend", "Hour"),
+  Pearson_r = unname(corr_pearson["Consumption_MWh", c("Year", "Day_of_Year", "Is_Weekend", "Hour")]),
+  Spearman_rho = unname(corr_spearman["Consumption_MWh", c("Year", "Day_of_Year", "Is_Weekend", "Hour")])
+) %>%
+  arrange(desc(abs(Pearson_r)))
+
+# Display the ranked feature correlations with electricity consumption.
+consumption_correlations
+
+# Prepare the Pearson correlation matrix in long format for ggplot2
+# using clean display labels.
+corr_labels <- c(
+  Consumption_MWh = "Consumption (MWh)",
+  Year = "Year",
+  Day_of_Year = "Day of Year",
+  Is_Weekend = "Is Weekend",
+  Hour = "Hour (UTC)"
+)
+
+corr_long <- as.data.frame(corr_pearson) %>%
+  rownames_to_column(var = "Var1") %>%
+  pivot_longer(
+    cols = -Var1,
+    names_to = "Var2",
+    values_to = "Correlation"
+  ) %>%
+  mutate(
+    Var1 = factor(corr_labels[Var1], levels = rev(unname(corr_labels))),
+    Var2 = factor(corr_labels[Var2], levels = unname(corr_labels))
+  )
+
+# Plot 1 (RQ4): Pearson correlation matrix heatmap of non-redundant features.
+plot_rq4_corr <- ggplot(
+  corr_long,
+  aes(x = Var2, y = Var1, fill = Correlation)
+) +
+  geom_tile(colour = "white", linewidth = 0.8) +
+  geom_text(
+    aes(
+      label = ifelse(abs(Correlation) < 0.005, "0.00", sprintf("%.2f", Correlation)),
+      colour = abs(Correlation) > 0.55
+    ),
+    size = 4.2,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "white")) +
+  scale_fill_gradient2(
+    low = "#2166AC",
+    mid = "white",
+    high = "#B2182B",
+    midpoint = 0,
+    limits = c(-1, 1),
+    name = "Pearson r"
+  ) +
+  coord_fixed() +
+  labs(
+    title = "Pearson Correlation Matrix of Non-Redundant Features",
+    subtitle = "Month_Num excluded (collinear with Day_of_Year, r = 0.997); descriptive only",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.title.position = "plot",
+    axis.text.x = element_text(angle = 30, hjust = 1, face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+# Display and save RQ4 Plot 1 to output/figures/.
+plot_rq4_corr
+ggsave(
+  filename = "output/figures/rq4_correlation_matrix.png",
+  plot = plot_rq4_corr,
+  width = 8.5,
+  height = 6.5,
+  dpi = 300,
+  bg = "white"
+)
+
 
 
 # ============================================================
