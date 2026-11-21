@@ -11,9 +11,9 @@
 # 1. LOAD REQUIRED LIBRARIES
 # ============================================================
 
-# Install and load the tidyverse package.
+# Load the tidyverse package.
 # It provides functions for data manipulation and visualisation.
-install.packages("tidyverse")
+# Package installation instructions are documented in README.md.
 library(tidyverse)
 
 # ============================================================
@@ -1088,7 +1088,12 @@ plot_rq3_daily_anomalies <- ggplot(
       "Day with High Hourly Outlier(s)" = 17
     )
   ) +
-  scale_x_date(date_breaks = "3 months", date_labels = "%b %Y") +
+  scale_x_date(
+    limits = range(daily_summary$Date),
+    date_breaks = "3 months",
+    date_labels = "%b %Y",
+    expand = c(0, 0)
+  ) +
   labs(
     title = "Daily Mean Electricity Consumption and Days with Flagged Hourly Outliers",
     subtitle = "Markers identify dates containing >=1 within-year hourly IQR outlier (59 hours across 16 dates; UTC)",
