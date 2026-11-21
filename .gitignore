@@ -1,0 +1,13 @@
+# Jupyter / notebook checkpoints
+.ipynb_checkpoints/
+
+# R / RStudio session files
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+Rplots.pdf
+
+# Operating system temporary files
+.DS_Store
+Thumbs.db
