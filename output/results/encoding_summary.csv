@@ -1,0 +1,8 @@
+"Dummy_Variable","Reference_Category","Count_1","Proportion_Pct"
+"Day_Type_Weekend","Weekday",7512,28.56
+"Season_Spring","Winter",6624,25.18
+"Season_Summer","Winter",6624,25.18
+"Season_Autumn","Winter",6552,24.91
+"Time_Period_Morning","Night",6576,25
+"Time_Period_Afternoon","Night",6576,25
+"Time_Period_Evening","Night",6576,25

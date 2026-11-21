@@ -1,0 +1,8 @@
+"Day_of_Week","Day_Type","Observations","Mean_MWh","Median_MWh","SD_MWh","IQR_MWh"
+"Monday","Weekday",3768,1034.85,1031,85.73,143.5
+"Tuesday","Weekday",3768,1043.03,1039,86.17,142.25
+"Wednesday","Weekday",3768,1047.06,1039,85.89,145
+"Thursday","Weekday",3744,1047.55,1039.5,86.69,141.25
+"Friday","Weekday",3744,1045.53,1036,85.87,144
+"Saturday","Weekend",3744,1037.15,1029,84.28,143
+"Sunday","Weekend",3768,1027.83,1022,82.97,141

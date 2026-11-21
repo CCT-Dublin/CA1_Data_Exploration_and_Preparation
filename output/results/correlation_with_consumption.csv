@@ -1,0 +1,5 @@
+"Feature","Pearson_r","Spearman_rho"
+"Year",0.9,0.907
+"Day_of_Year",0.348,0.337
+"Is_Weekend",-0.059,-0.057
+"Hour",0.015,0.014

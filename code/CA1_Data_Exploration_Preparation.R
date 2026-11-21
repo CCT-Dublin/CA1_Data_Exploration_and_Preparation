@@ -1709,6 +1709,185 @@ ggsave(
 # 11. FINAL RESULTS
 # ============================================================
 
+# Ensure processed data and results output directories exist
+# before exporting CSV files.
+dir.create("data/processed", recursive = TRUE, showWarnings = FALSE)
+dir.create("output/results", recursive = TRUE, showWarnings = FALSE)
+
+# ------------------------------------------------------------
+# 11.1 Export Prepared Datasets to data/processed/
+# ------------------------------------------------------------
+
+# Export all four prepared datasets created across the workflow
+# so each stage of preparation is reproducible and auditable.
+write.csv(
+  mec04_clean,
+  file = "data/processed/mec04_clean.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  mec04_eda,
+  file = "data/processed/mec04_eda.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  mec04_encoded,
+  file = "data/processed/mec04_encoded.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  mec04_pca_input,
+  file = "data/processed/mec04_pca_input.csv",
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------
+# 11.2 Export Key Analytical Summary Tables to output/results/
+# ------------------------------------------------------------
+
+# Prepare data frames that store row names as explicit columns
+# before writing clean CSV result tables.
+outliers_by_year_export <- data.frame(
+  Year = rownames(outliers_by_year),
+  outliers_by_year,
+  row.names = NULL
+)
+
+pca_loadings_export <- data.frame(
+  Feature = rownames(pca_loadings),
+  pca_loadings,
+  row.names = NULL
+)
+
+pca_contributions_export <- data.frame(
+  Feature = rownames(pca_contributions_pct),
+  pca_contributions_pct,
+  row.names = NULL
+)
+
+# Export outlier analysis tables (Section 6).
+write.csv(
+  outlier_comparison,
+  file = "output/results/outlier_comparison.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  outliers_by_year_export,
+  file = "output/results/outliers_by_year.csv",
+  row.names = FALSE
+)
+
+# Export EDA summary tables (Section 8: RQ1-RQ4).
+write.csv(
+  yearly_summary,
+  file = "output/results/yearly_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  seasonal_summary,
+  file = "output/results/seasonal_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  dow_summary,
+  file = "output/results/day_of_week_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  period_year_summary,
+  file = "output/results/time_period_by_year_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  flagged_days_summary,
+  file = "output/results/flagged_days_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  consumption_correlations,
+  file = "output/results/correlation_with_consumption.csv",
+  row.names = FALSE
+)
+
+# Export categorical encoding and PCA tables (Sections 9-10).
+write.csv(
+  encoding_summary,
+  file = "output/results/encoding_summary.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  pca_variance_table,
+  file = "output/results/pca_variance_explained.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  pca_loadings_export,
+  file = "output/results/pca_loadings.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  pca_contributions_export,
+  file = "output/results/pca_contributions_pct.csv",
+  row.names = FALSE
+)
+
+# ------------------------------------------------------------
+# 11.3 Final Pipeline Verification Summary
+# ------------------------------------------------------------
+
+# Build and display an overview table confirming dimensions and
+# missing-value counts across all datasets in the analysis pipeline.
+pipeline_summary <- data.frame(
+  Dataset = c(
+    "mec04 (Raw)",
+    "mec04_clean (Cleaned)",
+    "mec04_eda (EDA Features)",
+    "mec04_encoded (Dummy Encoded)",
+    "mec04_pca_input (PCA Matrix)"
+  ),
+  Rows = c(
+    nrow(mec04),
+    nrow(mec04_clean),
+    nrow(mec04_eda),
+    nrow(mec04_encoded),
+    nrow(mec04_pca_input)
+  ),
+  Columns = c(
+    ncol(mec04),
+    ncol(mec04_clean),
+    ncol(mec04_eda),
+    ncol(mec04_encoded),
+    ncol(mec04_pca_input)
+  ),
+  Missing_Values = c(
+    sum(is.na(mec04)),
+    sum(is.na(mec04_clean)),
+    sum(is.na(mec04_eda)),
+    sum(is.na(mec04_encoded)),
+    sum(is.na(mec04_pca_input))
+  )
+)
+
+# Display and export the pipeline verification summary.
+pipeline_summary
+write.csv(
+  pipeline_summary,
+  file = "output/results/pipeline_summary.csv",
+  row.names = FALSE
+)
+
 
 
 # ============================================================

@@ -1,0 +1,10 @@
+"Component","Eigenvalue","Variance_Pct","Cumulative_Variance_Pct","Kaiser_Above_1"
+"PC1",1.954,21.71,21.71,TRUE
+"PC2",1.336,14.84,36.55,TRUE
+"PC3",1.333,14.81,51.36,TRUE
+"PC4",1.333,14.81,66.18,TRUE
+"PC5",1.309,14.54,80.72,TRUE
+"PC6",1,11.11,91.83,FALSE
+"PC7",0.344,3.82,95.65,FALSE
+"PC8",0.333,3.7,99.35,FALSE
+"PC9",0.059,0.65,100,FALSE

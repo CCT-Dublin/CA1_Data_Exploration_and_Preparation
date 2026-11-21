@@ -1,0 +1,6 @@
+"Dataset","Rows","Columns","Missing_Values"
+"mec04 (Raw)",26352,12,48
+"mec04_clean (Cleaned)",26304,12,0
+"mec04_eda (EDA Features)",26304,11,0
+"mec04_encoded (Dummy Encoded)",26304,11,0
+"mec04_pca_input (PCA Matrix)",26304,9,0
