@@ -1690,12 +1690,18 @@ ggsave(
 # - PC6 (11.11%, eigenvalue = 1.000): Almost entirely driven by
 #   Day_Type_Weekend (+0.998; 99.6%), reflecting the weekly cycle as an
 #   independent dimension from annual, seasonal and intra-day patterns.
-# - Five components exceed the Kaiser threshold (eigenvalue > 1) and
-#   explain 80.72% of variance; retaining six components includes the
-#   independent Weekend dimension and explains 91.83% of total variance.
-# - PC9 (0.65%, eigenvalue = 0.059) contrasts Consumption_MWh (+0.695)
-#   against Year (-0.665), confirming how closely consumption tracks
-#   multi-year progression while leaving a small residual component.
+# - Five components strictly exceed the Kaiser threshold (unrounded
+#   eigenvalue > 1) and explain 80.72% of variance; PC6 displays a
+#   rounded eigenvalue of 1.000 (just below 1 unrounded), and retaining
+#   six components includes the independent Weekend dimension,
+#   explaining 91.83% of total variance.
+# - PC9 (0.65%, eigenvalue = 0.059) represents a very small residual
+#   contrast between Consumption_MWh (+0.695) and Year (-0.665). Its
+#   contribution to total variance is minimal, so the main shared
+#   variation between consumption and year is better represented by PC1.
+# - Overall, this PCA is exploratory: the components summarise main
+#   dimensions of variation in the dataset and do not establish causal
+#   relationships.
 
 
 
