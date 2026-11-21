@@ -1302,12 +1302,12 @@ ggsave(
 # ============================================================
 
 # In this section, key categorical variables from mec04_eda are
-# converted into numeric dummy variables using base R model.matrix()
-# with reference-category coding (k - 1 dummy columns per feature).
+# converted into numeric dummy variables using Reference-Coded Dummy
+# Encoding via base R model.matrix() (k - 1 dummy columns per feature).
 #
 # Methodological justification:
-# 1. Dummy (one-hot with reference) encoding avoids imposing arbitrary
-#    numeric distances between categories (unlike simple label encoding).
+# 1. Reference-coded dummy encoding avoids imposing arbitrary numeric
+#    distances between categories (unlike simple label encoding).
 # 2. Using k - 1 columns prevents perfect multicollinearity (the dummy
 #    variable trap), where the sum of all k indicators equals 1.
 # 3. Reference categories are explicitly fixed as:
