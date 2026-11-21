@@ -1301,6 +1301,115 @@ ggsave(
 # 9. CATEGORICAL ENCODING
 # ============================================================
 
+# In this section, key categorical variables from mec04_eda are
+# converted into numeric dummy variables using base R model.matrix()
+# with reference-category coding (k - 1 dummy columns per feature).
+#
+# Methodological justification:
+# 1. Dummy (one-hot with reference) encoding avoids imposing arbitrary
+#    numeric distances between categories (unlike simple label encoding).
+# 2. Using k - 1 columns prevents perfect multicollinearity (the dummy
+#    variable trap), where the sum of all k indicators equals 1.
+# 3. Reference categories are explicitly fixed as:
+#    - Day_Type    : Weekday  (1 dummy: Day_Type_Weekend)
+#    - Season      : Winter   (3 dummies: Spring, Summer, Autumn)
+#    - Time_Period : Night    (3 dummies: Morning, Afternoon, Evening)
+# 4. Because Season and Time_Period were stored as ordered factors in
+#    mec04_eda for plotting, they are converted to unordered factors in
+#    a temporary table here so model.matrix() produces binary 0/1
+#    indicators rather than orthogonal polynomial contrasts.
+# 5. mec04_clean and mec04_eda remain completely unchanged.
+
+# ------------------------------------------------------------
+# 9.1 Prepare Unordered Factors and Generate Dummy Variables
+# ------------------------------------------------------------
+
+# Create a temporary data frame with unordered factors and explicit
+# reference levels (first level = reference category).
+encoding_factors <- data.frame(
+  Day_Type = factor(
+    as.character(mec04_eda$Day_Type),
+    levels = c("Weekday", "Weekend")
+  ),
+  Season = factor(
+    as.character(mec04_eda$Season),
+    levels = c("Winter", "Spring", "Summer", "Autumn")
+  ),
+  Time_Period = factor(
+    as.character(mec04_eda$Time_Period),
+    levels = c("Night", "Morning", "Afternoon", "Evening")
+  )
+)
+
+# Generate the k - 1 dummy variable matrix using base R model.matrix()
+# and remove the intercept column (column 1).
+dummy_matrix <- model.matrix(
+  ~ Day_Type + Season + Time_Period,
+  data = encoding_factors
+)[, -1, drop = FALSE]
+
+# Assign clean, descriptive column names to the dummy variables.
+colnames(dummy_matrix) <- c(
+  "Day_Type_Weekend",
+  "Season_Spring",
+  "Season_Summer",
+  "Season_Autumn",
+  "Time_Period_Morning",
+  "Time_Period_Afternoon",
+  "Time_Period_Evening"
+)
+
+# ------------------------------------------------------------
+# 9.2 Assemble and Validate the Encoded Dataset (mec04_encoded)
+# ------------------------------------------------------------
+
+# Combine the numeric variables from mec04_eda with the 7 binary
+# dummy indicators into a dedicated numeric dataset (mec04_encoded).
+# Note: mec04_encoded retains both numeric temporal variables
+# (Day_of_Year, Hour) and encoded categorical features (Season,
+# Time_Period) for completeness. Section 10 will build a separate,
+# non-redundant input matrix for PCA so overlapping representations
+# are not entered simultaneously.
+mec04_encoded <- cbind(
+  data.frame(
+    Year = as.numeric(mec04_eda$Year),
+    Day_of_Year = as.numeric(mec04_eda$Day_of_Year),
+    Hour = as.numeric(mec04_eda$Hour),
+    Consumption_MWh = as.numeric(mec04_eda$Consumption_MWh)
+  ),
+  as.data.frame(dummy_matrix)
+)
+
+# Verify dimensions (expected: 26,304 rows x 11 numeric columns)
+# and confirm that mec04_eda remains unchanged (26,304 x 11).
+dim(mec04_encoded)
+dim(mec04_eda)
+
+# Confirm that all columns in mec04_encoded are numeric and contain no NAs.
+str(mec04_encoded)
+colSums(is.na(mec04_encoded))
+
+# Verify that every dummy column strictly contains only binary 0/1 values.
+all(apply(dummy_matrix, 2, function(x) all(x %in% c(0, 1))))
+
+# Summarise the count and percentage of observations equal to 1 for
+# each dummy variable to cross-check against Section 7 tables.
+encoding_summary <- data.frame(
+  Dummy_Variable = colnames(dummy_matrix),
+  Reference_Category = c(
+    "Weekday",
+    "Winter", "Winter", "Winter",
+    "Night", "Night", "Night"
+  ),
+  Count_1 = colSums(dummy_matrix),
+  Proportion_Pct = round(colMeans(dummy_matrix) * 100, 2),
+  row.names = NULL
+)
+
+# Display the encoding validation summary and first six encoded rows.
+encoding_summary
+head(mec04_encoded)
+
 
 
 # ============================================================
