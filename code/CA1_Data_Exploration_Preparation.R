@@ -400,6 +400,175 @@ dim(mec04_clean)
 # 7. DATA TRANSFORMATION
 # ============================================================
 
+# In this section, a dedicated analysis dataset (mec04_eda) is created
+# from mec04_clean. The original dataset (mec04) and the cleaned
+# dataset (mec04_clean, with 26,304 rows and 12 columns) remain
+# unchanged so that all source metadata and codes are preserved.
+#
+# Time zone note: According to CSO documentation, the MEC04 hourly
+# intervals are recorded in Coordinated Universal Time (UTC). The
+# hourly timestamps are intentionally kept in UTC without converting
+# to Irish local time (IST/BST) so that every day retains exactly
+# 24 hourly observations without daylight saving time distortions.
+
+# ------------------------------------------------------------
+# 7.1 Construct Date and Calendar Variables
+# ------------------------------------------------------------
+
+# Extract the numeric day of the month (1 to 31) from the Day text
+# variable (for example, "01 January" becomes 1).
+day_num <- as.integer(sub(" .*", "", mec04_clean$Day))
+
+# Extract the English month name from the Day text variable
+# (for example, "01 January" becomes "January").
+month_text <- sub("^[0-9]+ ", "", mec04_clean$Day)
+
+# Convert the English month names to numeric values (1 to 12) using
+# R's built-in month.name vector. This approach is independent of
+# the operating system language or locale settings.
+month_num <- match(month_text, month.name)
+
+# Combine Year, month_num and day_num into a proper Date object
+# formatted as YYYY-MM-DD.
+date_full <- as.Date(sprintf("%d-%02d-%02d", mec04_clean$Year, month_num, day_num))
+
+# Verify that no invalid or missing dates were produced during conversion.
+sum(is.na(date_full))
+
+# Create an ordered factor for calendar months from January to December.
+month_factor <- factor(month_text, levels = month.name, ordered = TRUE)
+
+# Calculate the sequential day of the year from the Date object.
+# This automatically respects leap years: 1 to 365 in 2023 and 2025,
+# and 1 to 366 in 2024 (where 29 February is day 60).
+day_of_year <- as.integer(format(date_full, "%j"))
+
+# ------------------------------------------------------------
+# 7.2 Create Day-of-Week, Day-Type and Season Variables
+# ------------------------------------------------------------
+
+# Extract the numeric weekday from POSIXlt (0 = Sunday, 1 = Monday,
+# ..., 6 = Saturday) and map it to explicit English weekday names.
+# This guarantees consistent English labels regardless of system locale.
+weekday_labels <- c(
+  "Sunday", "Monday", "Tuesday", "Wednesday",
+  "Thursday", "Friday", "Saturday"
+)
+day_of_week_text <- weekday_labels[as.POSIXlt(date_full)$wday + 1]
+
+# Convert Day_of_Week into an ordered factor starting on Monday.
+day_of_week <- factor(
+  day_of_week_text,
+  levels = c(
+    "Monday", "Tuesday", "Wednesday", "Thursday",
+    "Friday", "Saturday", "Sunday"
+  ),
+  ordered = TRUE
+)
+
+# Classify each observation as a Weekday (Monday to Friday) or
+# Weekend (Saturday and Sunday).
+day_type <- factor(
+  ifelse(day_of_week %in% c("Saturday", "Sunday"), "Weekend", "Weekday"),
+  levels = c("Weekday", "Weekend")
+)
+
+# Assign Irish meteorological seasons (Met Eireann convention):
+# Winter = Dec, Jan, Feb | Spring = Mar, Apr, May |
+# Summer = Jun, Jul, Aug | Autumn = Sep, Oct, Nov.
+# Meteorological seasons align cleanly with full calendar months.
+season_text <- ifelse(
+  month_num %in% c(12, 1, 2), "Winter",
+  ifelse(
+    month_num %in% c(3, 4, 5), "Spring",
+    ifelse(month_num %in% c(6, 7, 8), "Summer", "Autumn")
+  )
+)
+
+# Convert Season into an ordered factor following the seasonal cycle.
+season_factor <- factor(
+  season_text,
+  levels = c("Winter", "Spring", "Summer", "Autumn"),
+  ordered = TRUE
+)
+
+# ------------------------------------------------------------
+# 7.3 Extract Hour and Time-of-Day Period (UTC)
+# ------------------------------------------------------------
+
+# Extract the starting hour (0 to 23, UTC) from the Hourly.Consumption
+# interval string (for example, "00:00 < 01:00" becomes 0 and
+# "23:00 < 00:00" becomes 23).
+hour_start <- as.integer(substr(mec04_clean$Hourly.Consumption, 1, 2))
+
+# Group the 24 hourly intervals (UTC) into four equal 6-hour periods:
+# Night     = 00:00 to 05:59 (hours 0-5)
+# Morning   = 06:00 to 11:59 (hours 6-11)
+# Afternoon = 12:00 to 17:59 (hours 12-17)
+# Evening   = 18:00 to 23:59 (hours 18-23)
+time_period_text <- ifelse(
+  hour_start < 6, "Night",
+  ifelse(
+    hour_start < 12, "Morning",
+    ifelse(hour_start < 18, "Afternoon", "Evening")
+  )
+)
+
+# Convert Time_Period into an ordered factor following the daily cycle.
+time_period <- factor(
+  time_period_text,
+  levels = c("Night", "Morning", "Afternoon", "Evening"),
+  ordered = TRUE
+)
+
+# ------------------------------------------------------------
+# 7.4 Assemble and Validate the mec04_eda Dataset
+# ------------------------------------------------------------
+
+# Build the dedicated EDA dataset with all engineered temporal
+# variables and electricity consumption in Megawatt Hours (MWh).
+mec04_eda <- data.frame(
+  Year = mec04_clean$Year,
+  Date = date_full,
+  Month = month_factor,
+  Month_Num = month_num,
+  Day_of_Year = day_of_year,
+  Day_of_Week = day_of_week,
+  Day_Type = day_type,
+  Season = season_factor,
+  Hour = hour_start,
+  Time_Period = time_period,
+  Consumption_MWh = mec04_clean$VALUE
+)
+
+# Confirm that mec04_clean remains unchanged (26,304 rows x 12 columns)
+# and inspect the dimensions of mec04_eda (26,304 rows x 11 columns).
+dim(mec04_clean)
+dim(mec04_eda)
+
+# Verify that no missing values were introduced during data transformation.
+colSums(is.na(mec04_eda))
+
+# Inspect the structure, first six rows and summary statistics of mec04_eda.
+str(mec04_eda)
+head(mec04_eda)
+summary(mec04_eda)
+
+# Validate the date range (expected: 2023-01-01 to 2025-12-31).
+range(mec04_eda$Date)
+
+# Validate that Day_of_Year respects leap years
+# (expected max: 365 for 2023, 366 for 2024, 365 for 2025).
+tapply(mec04_eda$Day_of_Year, mec04_eda$Year, max)
+
+# Validate the hourly range (expected: 0 to 23) and check balanced
+# observation counts across Day_Type, Season and Time_Period.
+range(mec04_eda$Hour)
+table(mec04_eda$Day_Type)
+table(mec04_eda$Season)
+table(mec04_eda$Time_Period)
+table(mec04_eda$Day_of_Week)
+
 
 
 # ============================================================
