@@ -1416,6 +1416,287 @@ head(mec04_encoded)
 # 10. PRINCIPAL COMPONENT ANALYSIS (PCA)
 # ============================================================
 
+# Methodological notes:
+# 1. Feature selection vs. dimensionality reduction (LO2):
+#    - Feature selection occurs in Step 10.1, where nine non-redundant
+#      variables are selected from mec04_encoded (excluding Day_of_Year
+#      and Hour to avoid duplicating Season and Time_Period, and avoiding
+#      linear wrap-around distortion between 23:00 and 00:00 UTC).
+#    - Dimensionality reduction occurs in Step 10.3, where PCA combines
+#      the nine standardised variables into orthogonal principal
+#      components that capture the main directions of dataset variance.
+# 2. Mixed numeric and dummy variables:
+#    Binary k - 1 dummy variables are not continuous variables and depend
+#    on the chosen reference categories (Weekday, Winter, Night). While
+#    methods such as MCA or FAMD exist for purely categorical or mixed
+#    data, standardised PCA is applied here as an exploratory
+#    dimensionality-reduction technique aligned with the project aim.
+# 3. Standardisation:
+#    center = TRUE and scale. = TRUE are used in prcomp() so that
+#    Consumption_MWh, Year and binary 0/1 dummy indicators are evaluated
+#    on a comparable unit-variance scale.
+
+# ------------------------------------------------------------
+# 10.1 Prepare Dedicated PCA Input Matrix (mec04_pca_input)
+# ------------------------------------------------------------
+
+# Select the nine agreed non-redundant analytical variables from
+# mec04_encoded (leaving mec04_clean, mec04_eda and mec04_encoded unchanged).
+pca_feature_names <- c(
+  "Consumption_MWh",
+  "Year",
+  "Day_Type_Weekend",
+  "Season_Spring",
+  "Season_Summer",
+  "Season_Autumn",
+  "Time_Period_Morning",
+  "Time_Period_Afternoon",
+  "Time_Period_Evening"
+)
+
+mec04_pca_input <- mec04_encoded[, pca_feature_names]
+
+# ------------------------------------------------------------
+# 10.2 Validate the PCA Input Matrix
+# ------------------------------------------------------------
+
+# Confirm dimensions (expected: 26,304 rows x 9 columns).
+dim(mec04_pca_input)
+
+# Confirm that all selected variables are numeric with zero missing values.
+all(sapply(mec04_pca_input, is.numeric))
+colSums(is.na(mec04_pca_input))
+
+# Verify that every variable has non-zero standard deviation before scaling.
+round(apply(mec04_pca_input, 2, sd), 4)
+
+# ------------------------------------------------------------
+# 10.3 Execute Standardised PCA using Base R prcomp()
+# ------------------------------------------------------------
+
+# Run Principal Component Analysis with centering and unit-variance scaling.
+pca_result <- prcomp(
+  mec04_pca_input,
+  center = TRUE,
+  scale. = TRUE
+)
+
+# Display the standard base R PCA summary (standard deviations,
+# proportion of variance and cumulative proportion).
+summary(pca_result)
+
+# ------------------------------------------------------------
+# 10.4 Eigenvalues, Variance Explained and Scree Plot
+# ------------------------------------------------------------
+
+# Calculate eigenvalues (squared standard deviations), individual
+# variance explained (%) and cumulative variance explained (%).
+pca_eigenvalues <- pca_result$sdev^2
+pca_var_pct <- (pca_eigenvalues / sum(pca_eigenvalues)) * 100
+pca_cum_pct <- cumsum(pca_var_pct)
+
+# Build a structured summary table including the Kaiser criterion
+# (eigenvalue > 1).
+pca_variance_table <- data.frame(
+  Component = factor(
+    paste0("PC", seq_along(pca_eigenvalues)),
+    levels = paste0("PC", seq_along(pca_eigenvalues)),
+    ordered = TRUE
+  ),
+  Eigenvalue = round(pca_eigenvalues, 3),
+  Variance_Pct = round(pca_var_pct, 2),
+  Cumulative_Variance_Pct = round(pca_cum_pct, 2),
+  Kaiser_Above_1 = pca_eigenvalues > 1
+)
+
+# Display the eigenvalues and variance-explained table.
+pca_variance_table
+
+# Plot 1 (PCA): Scree plot of individual and cumulative variance explained.
+# Bars are coloured by the Kaiser criterion (eigenvalue > 1) so both
+# component selection rules (Kaiser and cumulative variance) are visible.
+plot_pca_scree <- ggplot(pca_variance_table, aes(x = Component)) +
+  geom_col(
+    aes(y = Variance_Pct, fill = Kaiser_Above_1),
+    width = 0.65,
+    alpha = 0.85
+  ) +
+  geom_text(
+    aes(
+      y = Variance_Pct,
+      label = sprintf("%.1f%%", Variance_Pct)
+    ),
+    vjust = -0.8,
+    size = 3.5,
+    fontface = "bold"
+  ) +
+  geom_line(
+    aes(y = Cumulative_Variance_Pct, group = 1),
+    colour = "#1B4F72",
+    linewidth = 1
+  ) +
+  geom_point(
+    aes(y = Cumulative_Variance_Pct),
+    colour = "#1B4F72",
+    size = 2.8
+  ) +
+  geom_text(
+    aes(
+      y = Cumulative_Variance_Pct,
+      label = ifelse(
+        Component == "PC1",
+        "",
+        sprintf("%.1f%%", Cumulative_Variance_Pct)
+      )
+    ),
+    vjust = -1.0,
+    size = 3.2,
+    colour = "#1B4F72"
+  ) +
+  scale_fill_manual(
+    values = c("TRUE" = "#2E86C1", "FALSE" = "#BDC3C7"),
+    labels = c("TRUE" = "Eigenvalue > 1 (Kaiser)", "FALSE" = "Eigenvalue <= 1")
+  ) +
+  scale_y_continuous(limits = c(0, 110), breaks = seq(0, 100, by = 20)) +
+  labs(
+    title = "PCA Scree Plot: Individual and Cumulative Variance Explained",
+    subtitle = "Standardised PCA on 9 features (PC1-PC5 meet Kaiser > 1: 80.7%; PC1-PC6 reach 91.8%)",
+    x = "Principal Component",
+    y = "Percentage of Variance Explained (%)",
+    fill = "Selection Criterion"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+# Display and save PCA Plot 1 to output/figures/.
+plot_pca_scree
+ggsave(
+  filename = "output/figures/pca_scree_variance.png",
+  plot = plot_pca_scree,
+  width = 10,
+  height = 5.8,
+  dpi = 300,
+  bg = "white"
+)
+
+# ------------------------------------------------------------
+# 10.5 Component Loadings, Variable Contributions and Interpretation
+# ------------------------------------------------------------
+
+# Extract component loadings (eigenvectors / rotation matrix) rounded
+# to three decimal places for interpretation.
+pca_loadings <- round(pca_result$rotation, 3)
+pca_loadings
+
+# Calculate percentage contribution of each variable to each component
+# (squared loadings x 100, summing to 100% within every component).
+pca_contributions_pct <- round((pca_result$rotation^2) * 100, 1)
+pca_contributions_pct
+
+# Prepare loadings for PC1 to PC6 (the five Kaiser > 1 components plus
+# borderline PC6 representing Day_Type_Weekend, capturing 91.83% of
+# total variance) in long format for visual inspection.
+pca_feature_labels <- c(
+  Consumption_MWh = "Consumption (MWh)",
+  Year = "Year",
+  Day_Type_Weekend = "Day Type: Weekend",
+  Season_Spring = "Season: Spring",
+  Season_Summer = "Season: Summer",
+  Season_Autumn = "Season: Autumn",
+  Time_Period_Morning = "Time Period: Morning",
+  Time_Period_Afternoon = "Time Period: Afternoon",
+  Time_Period_Evening = "Time Period: Evening"
+)
+
+loadings_long <- as.data.frame(pca_result$rotation[, 1:6]) %>%
+  rownames_to_column(var = "Feature") %>%
+  pivot_longer(
+    cols = -Feature,
+    names_to = "Component",
+    values_to = "Loading"
+  ) %>%
+  mutate(
+    Feature = factor(
+      pca_feature_labels[Feature],
+      levels = rev(unname(pca_feature_labels))
+    ),
+    Component = factor(Component, levels = paste0("PC", 1:6))
+  )
+
+# Plot 2 (PCA): Loadings heatmap for PC1 to PC6.
+plot_pca_loadings <- ggplot(
+  loadings_long,
+  aes(x = Component, y = Feature, fill = Loading)
+) +
+  geom_tile(colour = "white", linewidth = 0.7) +
+  geom_text(
+    aes(
+      label = ifelse(abs(Loading) < 0.005, "0.00", sprintf("%.2f", Loading)),
+      colour = abs(Loading) > 0.55
+    ),
+    size = 3.8,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  scale_colour_manual(values = c("FALSE" = "black", "TRUE" = "white")) +
+  scale_fill_gradient2(
+    low = "#2166AC",
+    mid = "white",
+    high = "#B2182B",
+    midpoint = 0,
+    limits = c(-1, 1),
+    name = "Loading"
+  ) +
+  labs(
+    title = "PCA Variable Loadings Across Principal Components (PC1-PC6)",
+    subtitle = "Reference categories: Weekday, Winter, Night; PC1-PC6 capture 91.83% of total variance",
+    x = "Principal Component",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.title.position = "plot",
+    axis.text.x = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+
+# Display and save PCA Plot 2 to output/figures/.
+plot_pca_loadings
+ggsave(
+  filename = "output/figures/pca_loadings_heatmap.png",
+  plot = plot_pca_loadings,
+  width = 9.5,
+  height = 6.0,
+  dpi = 300,
+  bg = "white"
+)
+
+# Summary of PCA interpretation (RQ4):
+# - PC1 (21.71%, eigenvalue = 1.954): Dominated by Consumption_MWh
+#   (+0.698; 48.7%) and Year (+0.659; 43.4%), capturing the multi-year
+#   upward demand shift from 2023 to 2025 as the single largest shared
+#   dimension of variation.
+# - PC2 (14.84%, eigenvalue = 1.336) and PC5 (14.54%, eigenvalue = 1.309):
+#   Capture orthogonal seasonal contrasts among the reference-coded Season
+#   dummies (Summer vs. Spring/Autumn on PC2; Autumn vs. Spring on PC5).
+# - PC3 (14.81%, eigenvalue = 1.333) and PC4 (14.81%, eigenvalue = 1.333):
+#   Capture intra-day contrasts among the Time_Period dummies (Afternoon
+#   vs. Evening on PC3; Afternoon vs. Morning on PC4).
+# - PC6 (11.11%, eigenvalue = 1.000): Almost entirely driven by
+#   Day_Type_Weekend (+0.998; 99.6%), reflecting the weekly cycle as an
+#   independent dimension from annual, seasonal and intra-day patterns.
+# - Five components exceed the Kaiser threshold (eigenvalue > 1) and
+#   explain 80.72% of variance; retaining six components includes the
+#   independent Weekend dimension and explains 91.83% of total variance.
+# - PC9 (0.65%, eigenvalue = 0.059) contrasts Consumption_MWh (+0.695)
+#   against Year (-0.665), confirming how closely consumption tracks
+#   multi-year progression while leaving a small residual component.
+
 
 
 # ============================================================
