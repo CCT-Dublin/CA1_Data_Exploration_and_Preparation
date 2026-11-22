@@ -8,6 +8,7 @@ Exploring Large Energy Users' Electricity Consumption in Ireland
 - **Programme:** BSc (Hons) in Computing in IT (4th Year, Semester 7) — CCT College Dublin
 - **Module:** Data Exploration & Preparation (CA1)
 - **Domain:** Energy
+- **Video Presentation (Google Drive):** https://drive.google.com/file/d/1N18q1pzniY9x5XHwJRiKQlP5LAoGBQtO/view?usp=sharing
 
 ## Dataset
 
@@ -64,8 +65,8 @@ CA1_Data_Exploration_and_Preparation/
 │   └── results/                             # 13 exported analytical CSV summary tables
 ├── poster/
 │   └── CA1_Poster_Caio_Jacob_2023168.pptx   # Final PowerPoint poster presentation
-├── video/
-│   └── video_presentation_script.md         # Timed video presentation script (<= 4 min)
+├── video/                                   # Presentation video hosted on Google Drive (>100 MB, excluded from Git)
+├── CA1 - Caio Jacob (2023168) - Data Exploration and Preparation (Cover Sheet & AI Declaration).docx
 ├── .gitignore
 └── README.md
 ```
