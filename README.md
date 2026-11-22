@@ -62,8 +62,10 @@ CA1_Data_Exploration_and_Preparation/
 ├── output/
 │   ├── figures/                             # 11 high-resolution (300 dpi) ggplot2 figures
 │   └── results/                             # 13 exported analytical CSV summary tables
-├── poster/                                  # PowerPoint poster presentation
-├── video/                                   # Presentation script / supporting notes
+├── poster/
+│   └── CA1_Poster_Caio_Jacob_2023168.pptx   # Final PowerPoint poster presentation
+├── video/
+│   └── video_presentation_script.md         # Timed video presentation script (<= 4 min)
 ├── .gitignore
 └── README.md
 ```
@@ -75,7 +77,10 @@ CA1_Data_Exploration_and_Preparation/
 - Required package: `tidyverse` (provides `dplyr`, `tidyr`, `ggplot2` and `tibble`; PCA and dummy encoding use base R `prcomp()` and `model.matrix()`).
 
 ### Step-by-Step Instructions
-1. Clone or download this repository and open RStudio.
+1. Clone this repository (or download the ZIP from GitHub) and open RStudio:
+   ```bash
+   git clone https://github.com/CCT-Dublin/CA1_Data_Exploration_and_Preparation.git
+   ```
 2. Set the R working directory to the repository root folder (`CA1_Data_Exploration_and_Preparation`):
    ```r
    setwd("path/to/CA1_Data_Exploration_and_Preparation")
@@ -93,7 +98,7 @@ CA1_Data_Exploration_and_Preparation/
 ## Summary of Key Findings
 
 - **Data Preparation & Missing Values:** Removed exactly **48** missing `VALUE` rows corresponding to non-existent leap-year dates (29 February 2023 and 29 February 2025), yielding **26,304** valid hourly observations across 2023 (`8,760`), leap year 2024 (`8,784`) and 2025 (`8,760`), with zero missing values across all prepared datasets.
-- **Outlier Analysis (1.5 × IQR):** Detected **0** global, monthly or hourly outliers, but **59** within-year potential hourly outliers (`0.22%`: `23` in 2023, `3` in 2024, `33` in 2025) across **16** calendar dates (`57` low, `2` high on `21 July 2025`). All 59 observations were retained as physically plausible readings (`802`–`1,248` MWh).
+- **Outlier Analysis (1.5 × IQR):** No outliers were detected using global, monthly or hour-of-day grouping; however, a separate within-year analysis flagged **59** hourly readings (`0.22%`: `23` in 2023, `3` in 2024, `33` in 2025) across **16** calendar dates (`57` low, `2` high on `21 July 2025`). All 59 observations were retained as physically plausible readings (`802`–`1,248` MWh).
 - **RQ1 (Variation Over Time):** Mean hourly electricity consumption grew steadily across the three-year window: **948.83 MWh** (`2023`) → **1,034.78 MWh** (`2024`, `+9.06%`) → **1,137.66 MWh** (`2025`, `+9.94%`), an overall annual-mean increase of **+19.90%** from 2023 to 2025. Aligning December to the following meteorological `Season_Year` confirmed consistent seasonal growth with tight dispersion (`SD = 21.00–26.25` MWh in complete Winters 2024–2025).
 - **RQ2 (Daily & Hourly Periods, UTC):** The aggregated electricity consumption exhibits a relatively stable 24-hour demand profile (`1,030.20` to `1,053.10` MWh; `~2.2%` intra-day swing), peaking at `14:00` UTC. An observed Weekday–Weekend difference of **+11.13 MWh** (`1,043.60` vs. `1,032.47` MWh; `+1.08%`) persists across all three years, and the period ranking (`Afternoon > Morning > Evening > Night`) is unchanged each year, though multi-year growth is far larger than intra-day variation.
 - **RQ3 (Unusual Patterns):** The 59 within-year flagged hours cluster mainly in early January (`01–02 January` and early-year lows) plus isolated dips (e.g., `14 May 2024`) and two high hourly peaks on `21 July 2025` (`1,241` and `1,248` MWh). Daily mean demand peaked on `27 November 2025` (`1,210.29` MWh) without any flagged hourly outlier, illustrating why dates containing flagged hourly readings are distinguished from daily-mean outliers.
