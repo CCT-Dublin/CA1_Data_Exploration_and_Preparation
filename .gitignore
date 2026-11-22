@@ -11,3 +11,6 @@ Rplots.pdf
 # Operating system temporary files
 .DS_Store
 Thumbs.db
+
+# Large local video recordings (>100 MB GitHub limit; hosted on Google Drive)
+video/*.mp4
